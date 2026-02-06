@@ -6,13 +6,15 @@
 /*   By: miguel-f <miguel-f@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/02/06 12:36:12 by miguel-f          #+#    #+#             */
-/*   Updated: 2026/02/06 12:37:19 by miguel-f         ###   ########.fr       */
+/*   Updated: 2026/02/06 13:21:37 by miguel-f         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <ctype.h>
+
+/* ========== GIVEN CODE ========== */
 
 typedef struct node {
     enum {
@@ -72,11 +74,24 @@ int expect(char **s, char c)
     return (0);
 }
 
-node	*expr(char **s);
-node	*term(char **s);
-node	*factor(char **s);
+/* ========== FIN GIVEN CODE ========== */
 
-node	*factor(char **s)
+/* Declaraciones de funciones para el parser */
+node	*SUM(char **s);
+node	*MUL(char **s);
+node	*PAR(char **s);
+
+/*
+** PAR - Factor/Parentesis: Parsea el nivel más bajo de precedencia
+** 
+** Esta función maneja:
+** - Números individuales (0-9)
+** - Expresiones entre paréntesis (recursivamente llama a SUM)
+** 
+** Es la base del parser recursivo descendente. Procesa los elementos
+** atómicos de la expresión.
+*/
+node	*PAR(char **s)
 {
     node    *ret;
 
@@ -88,7 +103,7 @@ node	*factor(char **s)
     }
     if (accept(s, '('))
     {
-        ret = expr(s);
+        ret = SUM(s);
         if (!ret || !expect(s, ')'))
         {
             destroy_tree(ret);
@@ -100,14 +115,24 @@ node	*factor(char **s)
     return (NULL);
 }
 
-node    *term(char **s)
+/*
+** MUL - Term/Multiplicación: Parsea operaciones de multiplicación
+** 
+** Esta función maneja:
+** - Secuencias de multiplicaciones (ej: 3*4*5)
+** - Asociatividad izquierda (3*4*5 se evalúa como (3*4)*5)
+** 
+** Tiene mayor precedencia que la suma. Llama a PAR para obtener
+** los operandos y construye un árbol binario para cada '*' encontrado.
+*/
+node    *MUL(char **s)
 {
-    node    *ret = factor(s);
+    node    *ret = PAR(s);
     node    *rhs;
 
     while (ret && accept(s, '*'))
     {
-        if (!(rhs = factor(s)))
+        if (!(rhs = PAR(s)))
         {
             destroy_tree(ret);
             return (NULL);
@@ -121,14 +146,25 @@ node    *term(char **s)
     return (ret);
 }
 
-node    *expr(char **s)
+/*
+** SUM - Expression/Suma: Parsea operaciones de suma
+** 
+** Esta función maneja:
+** - Secuencias de sumas (ej: 1+2+3)
+** - Asociatividad izquierda (1+2+3 se evalúa como (1+2)+3)
+** 
+** Tiene la menor precedencia. Llama a MUL para obtener los términos
+** y construye un árbol binario para cada '+' encontrado.
+** Es el punto de entrada principal del parser.
+*/
+node    *SUM(char **s)
 {
-    node    *ret = term(s);
+    node    *ret = MUL(s);
     node    *rhs;
 
     while (ret && accept(s, '+'))
     {
-        if (!(rhs = term(s)))
+        if (!(rhs = MUL(s)))
         {
             destroy_tree(ret);
             return (NULL);
@@ -142,9 +178,11 @@ node    *expr(char **s)
     return (ret);
 }
 
+/* ========== GIVEN CODE (con modificación) ========== */
+
 node    *parse_expr(char *s)
 {
-    node	*ret = expr(&s);
+    node	*ret = SUM(&s);
 
     if (ret && *s) 
     {
